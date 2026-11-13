@@ -1,0 +1,33 @@
+{
+  "name": "orbitlink-backend",
+  "version": "1.0.0",
+  "description": "OrbitLink - LEO Satellite Ground-Station Downlink Optimizer & Citizen EarthWatch Platform",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test:algorithm": "node src/algorithms/knapsack.test.js",
+    "benchmark:algorithm": "node src/algorithms/benchmark.js"
+  },
+  "keywords": [
+    "satellite",
+    "knapsack",
+    "express",
+    "cloud",
+    "machine-learning"
+  ],
+  "author": "M.Sc. Full Stack Development",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "morgan": "^1.10.0",
+    "swagger-ui-express": "^5.0.1",
+    "yamljs": "^0.3.0",
+    "zod": "^3.24.2"
+  }
+}
+

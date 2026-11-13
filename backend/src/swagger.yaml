@@ -1,0 +1,110 @@
+openapi: 3.0.0
+info:
+  title: OrbitLink API Gateway
+  description: LEO Satellite Ground-Station Downlink Optimizer & Citizen EarthWatch Platform API
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local Development Server
+
+paths:
+  /citizen/requests:
+    get:
+      summary: Retrieve all queued citizen observation requests
+      responses:
+        '200':
+          description: Successful list of citizen requests
+    post:
+      summary: Submit a new citizen observation request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, category, lat, lng]
+              properties:
+                title:
+                  type: string
+                  example: "Wayanad River Flood Check"
+                category:
+                  type: string
+                  enum: [disaster, agriculture, trail, casual]
+                  example: "disaster"
+                lat:
+                  type: number
+                  example: 11.6854
+                lng:
+                  type: number
+                  example: 76.1320
+                requestedBy:
+                  type: string
+                  example: "Local Emergency Triage"
+      responses:
+        '201':
+          description: Request created successfully
+
+  /downlink/optimize:
+    post:
+      summary: Execute 0/1 Knapsack Optimization on Pass Window
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [capacityMB]
+              properties:
+                capacityMB:
+                  type: number
+                  example: 1200
+                algorithmVariant:
+                  type: string
+                  enum: [1d, 2d, memoized, recursive]
+                  example: "1d"
+                weatherTelemetry:
+                  type: object
+                  properties:
+                    rain_rate_mm_hr:
+                      type: number
+                      example: 12.5
+                    elevation_angle_deg:
+                      type: number
+                      example: 38.0
+                    frequency_ghz:
+                      type: number
+                      example: 26.5
+      responses:
+        '200':
+          description: Optimization results with selected items and execution time
+
+  /analytics/predict-loss:
+    post:
+      summary: Real-Time ML Atmospheric Attenuation Prediction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rain_rate_mm_hr:
+                  type: number
+                  example: 15.0
+                elevation_angle_deg:
+                  type: number
+                  example: 30.0
+                frequency_ghz:
+                  type: number
+                  example: 26.5
+      responses:
+        '200':
+          description: Predicted signal loss in dB and link quality status
+
+  /satellite/passes:
+    get:
+      summary: Retrieve upcoming LEO satellite pass windows
+      responses:
+        '200':
+          description: Successful list of passes
+

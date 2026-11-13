@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trekker TrailCheck India — Mountain Safety, Campsites & Satellite Radar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    body {
+      background-color: #0b071a;
+      background-image: 
+        radial-gradient(circle at 15% 10%, rgba(255, 94, 58, 0.10) 0%, transparent 40%),
+        radial-gradient(circle at 85% 20%, rgba(245, 158, 11, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 50% 90%, rgba(147, 51, 234, 0.08) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+    #map { height: 480px; width: 100%; border-radius: 0.75rem; background: #0c081e; z-index: 1; }
+    .custom-scroll::-webkit-scrollbar { width: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #130d28; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #4c1d95; border-radius: 4px; }
+    .leaflet-popup-content-wrapper { background: #140d2a !important; color: #fdf2f8 !important; border: 1px solid #f97316; border-radius: 0.5rem; }
+    .leaflet-popup-tip { background: #140d2a !important; }
+    .alpenglow-border {
+      border: 1px solid rgba(251, 146, 60, 0.22);
+    }
+    .alpenglow-border:hover {
+      border-color: rgba(251, 146, 60, 0.5);
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #printable-modal, #printable-modal * { visibility: visible; }
+      #printable-modal { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col font-sans selection:bg-orange-500/30 selection:text-orange-200">
+
+  <!-- ========================================================================= -->
+  <!-- TOP HEADER (CLEAN & SIMPLE)                                               -->
+  <!-- ========================================================================= -->
+  <header class="border-b border-orange-500/20 bg-slate-950/85 backdrop-blur-md sticky top-0 z-50 px-5 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-500 via-rose-500 to-amber-500 flex items-center justify-center text-white shadow-md shadow-orange-500/25">
+        <i class="fa-solid fa-mountain-sun text-base"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <span class="text-base font-bold text-white tracking-tight">Trekker TrailCheck India</span>
+          <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/15 text-orange-300 border border-orange-500/30 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-orange-400 animate-ping"></span> 44 TRAILS ACTIVE
+          </span>
+        </div>
+        <p class="text-xs text-orange-200/70">Live Mountain Safety, Snowpack Radar & Campsite Directory</p>
+      </div>
+    </div>
+
+    <!-- HEADER ACTIONS (PRINT & API DOCS) -->
+    <div class="flex items-center gap-2 text-xs">
+      <button onclick="openPrintModal()" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-orange-200 border border-orange-500/30 rounded-lg font-semibold transition flex items-center gap-1.5">
+        <i class="fa-solid fa-print text-amber-400"></i> Print Offline Guide
+      </button>
+      <a href="/api/docs" target="_blank" class="px-3 py-1.5 bg-slate-900/80 hover:bg-slate-800 text-cyan-400 border border-cyan-500/30 rounded-lg font-semibold transition flex items-center gap-1.5">
+        <i class="fa-solid fa-code text-[11px]"></i> API Guide
+      </a>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- MAIN SINGLE-PAGE VIEWPORT                                                 -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 p-4 sm:p-5 max-w-[1650px] mx-auto w-full space-y-4">
+
+    <!-- REGION QUICK FILTER PILLS -->
+    <div class="flex flex-wrap items-center justify-between gap-2.5 bg-slate-900/70 border border-orange-500/20 p-2.5 rounded-xl backdrop-blur-md">
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-xs font-bold text-orange-300/80 uppercase tracking-wider mr-1">Region:</span>
+        <button onclick="filterZone('all')" id="zone-all" class="px-3 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-orange-500 to-rose-600 text-white transition shadow-sm shadow-orange-500/30">🇮🇳 All India (44)</button>
+        <button onclick="filterZone('himachal')" id="zone-himachal" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition">🏔️ Himachal (11)</button>
+        <button onclick="filterZone('uttarakhand')" id="zone-uttarakhand" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition">🚩 Uttarakhand (11)</button>
+        <button onclick="filterZone('ladakh')" id="zone-ladakh" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition">❄️ Ladakh & Kashmir (5)</button>
+        <button onclick="filterZone('northeast')" id="zone-northeast" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition">🌿 Northeast (6)</button>
+        <button onclick="filterZone('sahyadri')" id="zone-sahyadri" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition">🏰 Sahyadri (5)</button>
+        <button onclick="filterZone('south')" id="zone-south" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition">🌴 Western Ghats (6)</button>
+      </div>
+
+      <div class="flex items-center gap-2 text-xs">
+        <span class="text-orange-200/80 font-semibold">Grade:</span>
+        <select id="grade-filter" onchange="renderTrailsDirectory()" class="bg-slate-850 border border-orange-500/30 rounded-lg px-2.5 py-1 text-slate-200 focus:outline-none focus:border-orange-500">
+          <option value="all">All Grades</option>
+          <option value="Easy">Easy (1-2 Days)</option>
+          <option value="Moderate">Moderate</option>
+          <option value="Difficult">Difficult</option>
+          <option value="Extreme">Extreme High Passes</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- ACTIVE MOUNTAIN TRAIL INTELLIGENCE DOSSIER                              -->
+    <!-- ======================================================================= -->
+    <div id="trail-dossier" class="bg-slate-900/80 border border-orange-500/25 rounded-2xl p-5 shadow-2xl backdrop-blur-md space-y-4">
+      
+      <!-- HEADER ROW: TITLE, REGION, STATUS -->
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-orange-500/20 pb-3">
+        <div>
+          <div class="flex flex-wrap items-center gap-3">
+            <h2 id="dos-title" class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Rohtang Pass & Atal North Portal</h2>
+            <span id="dos-status-pill" class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              CAUTION: HEAVY SNOWPACK
+            </span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 text-xs text-orange-200/70 mt-1">
+            <span id="dos-region" class="text-orange-200 font-medium">Himachal Pradesh (Pir Panjal)</span>
+            <span>•</span>
+            <span>Base Camp: <b id="dos-base" class="text-white font-semibold">Manali / Kothi (HP)</b></span>
+            <span>•</span>
+            <span id="dos-grade" class="font-bold text-amber-400">Difficult Grade</span>
+          </div>
+        </div>
+
+        <button onclick="openPrintModal()" class="px-3.5 py-2 bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-400 hover:to-rose-500 text-white rounded-lg font-bold text-xs shadow-md shadow-orange-500/25 transition flex items-center gap-2">
+          <i class="fa-solid fa-file-arrow-down"></i> Save Offline Trail Card
+        </button>
+      </div>
+
+      <!-- PHOTO GALLERY (SUMMIT, CAMPSITE, TRAIL ROUTE) -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between text-xs text-orange-200/80 font-semibold px-1">
+          <span class="flex items-center gap-1.5">
+            <i class="fa-solid fa-images text-rose-400"></i> Trail Photography & Scenic Views
+          </span>
+          <span class="text-[11px] text-slate-400">Click any photo to enlarge</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <!-- PHOTO 1: SUMMIT -->
+          <div onclick="openLightbox('hero')" class="group relative rounded-xl overflow-hidden border border-orange-500/30 bg-slate-950 aspect-video cursor-pointer shadow-md hover:border-orange-400 transition">
+            <img id="img-hero" src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80" alt="Summit Sunset" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent flex flex-col justify-end p-2.5">
+              <span class="text-[10px] uppercase font-bold text-orange-300 font-mono tracking-wider flex items-center gap-1">
+                <i class="fa-solid fa-mountain"></i> Summit Peak View
+              </span>
+              <span id="caption-hero" class="text-xs font-semibold text-white leading-tight line-clamp-1">Golden Hour Alpenglow over High Peaks</span>
+            </div>
+          </div>
+
+          <!-- PHOTO 2: CAMPSITE -->
+          <div onclick="openLightbox('camp')" class="group relative rounded-xl overflow-hidden border border-orange-500/30 bg-slate-950 aspect-video cursor-pointer shadow-md hover:border-orange-400 transition">
+            <img id="img-camp" src="https://images.unsplash.com/photo-1510312305653-8ed496efae75?auto=format&fit=crop&w=1200&q=80" alt="Alpine Campsite" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent flex flex-col justify-end p-2.5">
+              <span class="text-[10px] uppercase font-bold text-amber-300 font-mono tracking-wider flex items-center gap-1">
+                <i class="fa-solid fa-campground"></i> Evening Campsite
+              </span>
+              <span id="caption-camp" class="text-xs font-semibold text-white leading-tight line-clamp-1">Twilight Campsite with Expedition Tents</span>
+            </div>
+          </div>
+
+          <!-- PHOTO 3: TRAIL -->
+          <div onclick="openLightbox('trail')" class="group relative rounded-xl overflow-hidden border border-orange-500/30 bg-slate-950 aspect-video cursor-pointer shadow-md hover:border-orange-400 transition">
+            <img id="img-trail" src="https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99?auto=format&fit=crop&w=1200&q=80" alt="Trail Pass Crossing" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent flex flex-col justify-end p-2.5">
+              <span class="text-[10px] uppercase font-bold text-cyan-300 font-mono tracking-wider flex items-center gap-1">
+                <i class="fa-solid fa-route"></i> Mountain Trail Path
+              </span>
+              <span id="caption-trail" class="text-xs font-semibold text-white leading-tight line-clamp-1">High Pass Snowline Traverse & Ridgeline Corridors</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6 ESSENTIAL STAT CARDS (VERY CLEAN) -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-orange-500/20">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-orange-200/70">Summit Altitude</div>
+          <div id="dos-alt" class="text-base font-bold text-cyan-300 font-mono mt-0.5">3,978 m</div>
+          <div class="text-[10px] text-slate-400">Max peak height</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-orange-500/20">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-orange-200/70">Elevation Gain</div>
+          <div id="dos-ascent" class="text-base font-bold text-emerald-400 font-mono mt-0.5">+1,450 m</div>
+          <div class="text-[10px] text-slate-400">Total vertical climb</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-orange-500/20">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-orange-200/70">Trek Duration</div>
+          <div id="dos-duration" class="text-base font-bold text-amber-400 font-mono mt-0.5">2 - 3 Days</div>
+          <div class="text-[10px] text-slate-400">Expected time</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-orange-500/20">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-orange-200/70">Trail Distance</div>
+          <div id="dos-distance" class="text-base font-bold text-teal-300 font-mono mt-0.5">28 km</div>
+          <div class="text-[10px] text-slate-400">Round-trip route</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-orange-500/20">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-orange-200/70">Live Mountain Weather</div>
+          <div id="dos-temp" class="text-base font-bold text-white font-mono mt-0.5">-4°C</div>
+          <div id="dos-wind" class="text-[10px] text-emerald-400 font-mono">Wind: 28 km/h</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-orange-500/20">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-orange-200/70">Snowpack Radar</div>
+          <div id="dos-snow" class="text-base font-bold text-orange-300 font-mono mt-0.5">65 cm</div>
+          <div class="text-[10px] text-slate-400">Satellite snow depth</div>
+        </div>
+      </div>
+
+      <!-- DESIGNATED CAMPSITES ON ROUTE -->
+      <div class="p-3.5 rounded-xl bg-slate-950/60 border border-orange-500/30 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center gap-2">
+            <i class="fa-solid fa-campground text-orange-400"></i> Designated Route Campsites & Tent Pitching Spots
+          </span>
+          <span id="campsite-count-pill" class="text-[10px] font-mono bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded border border-orange-500/30">4 CAMPSITES</span>
+        </div>
+
+        <div id="campsites-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- 4 FIELD LOGISTICS BOXES -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5 text-xs">
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-orange-500/20 space-y-1">
+          <div class="flex items-center gap-1.5 text-cyan-400 font-bold uppercase tracking-wider text-[11px]">
+            <i class="fa-solid fa-signal"></i> Mobile Network
+          </div>
+          <p id="dos-network" class="text-slate-200 leading-relaxed font-medium">Jio / Airtel 4G up to Marhi; dead zone on pass summit.</p>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-rose-900/50 space-y-1">
+          <div class="flex items-center gap-1.5 text-rose-400 font-bold uppercase tracking-wider text-[11px]">
+            <i class="fa-solid fa-hospital"></i> Emergency Hospital
+          </div>
+          <p id="dos-rescue" class="text-slate-200 leading-relaxed font-medium">Manali Civil Hospital & BRO High-Altitude Rescue Station (18 km).</p>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-orange-500/20 space-y-1">
+          <div class="flex items-center gap-1.5 text-sky-400 font-bold uppercase tracking-wider text-[11px]">
+            <i class="fa-solid fa-droplet"></i> Drinking Water
+          </div>
+          <p id="dos-water" class="text-slate-200 leading-relaxed font-medium">Glacial streams at Marhi; carry minimum 2L between camps.</p>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-orange-500/20 space-y-1">
+          <div class="flex items-center gap-1.5 text-amber-400 font-bold uppercase tracking-wider text-[11px]">
+            <i class="fa-solid fa-file-shield"></i> Forest Permits
+          </div>
+          <p id="dos-permit" class="text-slate-200 leading-relaxed font-medium">Rohtang Pass Permit via District Administration (₹550 fee).</p>
+        </div>
+      </div>
+
+      <!-- HEALTH ADVICE & GEAR CHECKLIST -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-orange-500/20 space-y-1">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-rose-300 block flex items-center gap-1.5">
+            <i class="fa-solid fa-heart-pulse text-rose-400"></i> Altitude Sickness (AMS) Advice
+          </span>
+          <p id="dos-ams" class="text-slate-200 leading-relaxed">Moderate risk above 3,200m; take rest days and drink 4L water daily.</p>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-850/80 border border-orange-500/20 space-y-1">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-amber-300 block flex items-center gap-1.5">
+            <i class="fa-solid fa-backpack text-amber-400"></i> Required Gear
+          </span>
+          <div id="dos-gear-badges" class="flex flex-wrap gap-1.5 pt-0.5"></div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-orange-950/20 border border-orange-800/40 space-y-1">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-orange-400 block flex items-center gap-1.5">
+            <i class="fa-solid fa-triangle-exclamation text-orange-400"></i> Trail Advisory Warning
+          </span>
+          <p id="dos-safety" class="text-slate-200 leading-relaxed">Rapid weather transitions; sudden whiteouts possible in afternoon.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- SATELLITE MAP & TRAILS DIRECTORY GRID                                   -->
+    <!-- ======================================================================= -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-4">
+      
+      <!-- SATELLITE MAP COLUMN (8 COLS) -->
+      <div class="xl:col-span-8 space-y-3">
+        <div class="bg-slate-900/80 border border-orange-500/20 rounded-2xl p-3 shadow-xl backdrop-blur-md">
+          <div class="flex items-center justify-between mb-2 px-1 text-xs text-orange-200/70">
+            <span class="flex items-center gap-1.5 font-medium">
+              <i class="fa-solid fa-satellite text-amber-400"></i> Mountain Satellite Radar Map (Esri World Imagery)
+            </span>
+            <span class="text-[11px] text-slate-400">Click any trail pin to view route intelligence</span>
+          </div>
+          <!-- Leaflet Map Container -->
+          <div id="map"></div>
+        </div>
+
+        <!-- SIMPLE SATELLITE SAFETY DOWNLINK STATUS (INCORPORATES KNAPSACK & ML SIMPLY) -->
+        <div class="bg-slate-900/80 border border-orange-500/20 rounded-2xl p-3.5 backdrop-blur-md space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-orange-200 flex items-center gap-2">
+              <i class="fa-solid fa-shield-halved text-emerald-400"></i> Emergency Radar Pass Status (Knapsack & ML Intelligence)
+            </span>
+            <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+              OPTIMIZED IN 0.38 ms
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-300 leading-relaxed">
+            During brief 10-minute satellite passes, our <b>0/1 Knapsack Algorithm</b> automatically prioritizes fresh radar scans for critical avalanche & crevasse zones first, while our <b>Machine Learning Model</b> continuously checks atmospheric weather to ensure stable downloads.
+          </p>
+          <div id="scheduled-pills" class="flex flex-wrap gap-2 pt-1 text-[11px]">
+            <span class="px-2.5 py-1 rounded-lg bg-slate-800 border border-orange-500/30 text-white font-medium flex items-center gap-1.5">
+              <i class="fa-solid fa-satellite-dish text-orange-400"></i> Pin Parvati Pass (Avalanche Triage) <b class="text-emerald-400 font-mono">+10 pts</b>
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-800 border border-orange-500/30 text-white font-medium flex items-center gap-1.5">
+              <i class="fa-solid fa-satellite-dish text-orange-400"></i> Hampta Pass (Ice Chutes) <b class="text-emerald-400 font-mono">+10 pts</b>
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-800 border border-orange-500/30 text-white font-medium flex items-center gap-1.5">
+              <i class="fa-solid fa-satellite-dish text-orange-400"></i> Chadar River (Ice Shelf) <b class="text-emerald-400 font-mono">+9 pts</b>
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-800 border border-orange-500/30 text-white font-medium flex items-center gap-1.5">
+              <i class="fa-solid fa-satellite-dish text-orange-400"></i> Indrahar Pass <b class="text-emerald-400 font-mono">+8 pts</b>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 44 TRAILS DIRECTORY (4 COLS) -->
+      <div class="xl:col-span-4 space-y-3">
+        <div class="bg-slate-900/80 border border-orange-500/20 rounded-2xl p-3.5 shadow-xl backdrop-blur-md space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-orange-200 flex items-center gap-1.5">
+              <i class="fa-solid fa-route text-amber-400"></i> Mountain Trail Directory
+            </span>
+            <span id="trail-count-badge" class="text-[10px] font-mono bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded border border-orange-500/30">44 TRAILS</span>
+          </div>
+
+          <!-- SEARCH INPUT -->
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-orange-300/70"></i>
+            <input type="text" id="trail-search" oninput="renderTrailsDirectory()" placeholder="Search (e.g. Kedarkantha, Chadar, Kudremukh)..."
+              class="w-full bg-slate-850 border border-orange-500/30 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-orange-500" />
+          </div>
+
+          <!-- TRAIL CARDS LIST -->
+          <div id="trail-directory-list" class="space-y-2 max-h-[530px] overflow-y-auto custom-scroll pr-1">
+            <div class="text-xs text-slate-500 text-center py-4">Loading trail telemetry...</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- HIGH RESOLUTION IMAGE LIGHTBOX MODAL                                      -->
+  <!-- ========================================================================= -->
+  <div id="lightbox-modal" class="hidden fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="max-w-4xl w-full bg-slate-900 border border-orange-500/40 rounded-2xl overflow-hidden shadow-2xl space-y-3 p-4">
+      <div class="flex items-center justify-between border-b border-orange-500/20 pb-2">
+        <span id="lightbox-title" class="text-sm font-bold text-orange-200">Mountain Photography</span>
+        <button onclick="closeLightbox()" class="text-slate-400 hover:text-white text-lg p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="rounded-xl overflow-hidden max-h-[70vh] flex items-center justify-center bg-black">
+        <img id="lightbox-img" src="" alt="High Res Photo" class="w-full h-auto max-h-[70vh] object-contain" />
+      </div>
+      <p id="lightbox-desc" class="text-xs text-slate-300 italic text-center"></p>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PRINTABLE OFFLINE TRAIL GUIDE MODAL                                       -->
+  <!-- ========================================================================= -->
+  <div id="printable-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-orange-500/40 max-w-3xl w-full rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto custom-scroll text-slate-100 space-y-4">
+      
+      <div class="flex items-center justify-between border-b border-orange-500/20 pb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-orange-500 to-rose-600 flex items-center justify-center text-white font-bold">
+            <i class="fa-solid fa-print"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-white">Official Expedition Trail Briefing</h3>
+            <p class="text-xs text-orange-200/70">Document for Field Trekkers & Offline No-Network Zones</p>
+          </div>
+        </div>
+        <button onclick="closePrintModal()" class="text-slate-400 hover:text-white p-2 text-base no-print">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="print-content" class="space-y-4 text-xs"></div>
+
+      <div class="flex items-center justify-end gap-3 pt-4 border-t border-orange-500/20 no-print">
+        <button onclick="closePrintModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold">
+          Close Preview
+        </button>
+        <button onclick="window.print()" class="px-5 py-2 bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-400 hover:to-rose-500 text-white rounded-lg text-xs font-bold shadow-lg shadow-orange-600/30 flex items-center gap-2">
+          <i class="fa-solid fa-print"></i> Print / Save as PDF
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- JAVASCRIPT APPLICATION LOGIC                                              -->
+  <!-- ========================================================================= -->
+  <script>
+    let map, markerGroup;
+    let allTrails = [];
+    let currentSelectedTrail = null;
+    let activeZone = 'all';
+
+    // REGION FILTER
+    function filterZone(zone) {
+      activeZone = zone;
+      ['all', 'himachal', 'uttarakhand', 'ladakh', 'northeast', 'sahyadri', 'south'].forEach(z => {
+        const el = document.getElementById(`zone-${z}`);
+        if (!el) return;
+        if (z === zone) {
+          el.className = "px-3 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-orange-500 to-rose-600 text-white transition shadow-sm shadow-orange-500/30";
+        } else {
+          el.className = "px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition";
+        }
+      });
+      renderTrailsDirectory();
+    }
+
+    // LEAFLET SATELLITE MAP INITIALIZATION
+    function initMap() {
+      map = L.map('map', {
+        center: [28.6139, 77.2090],
+        zoom: 5,
+        zoomControl: true
+      });
+
+      // Pure Esri World Imagery (High-Resolution Satellite Terrain)
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri, Maxar, Earthstar Geographics',
+        maxZoom: 18
+      }).addTo(map);
+
+      markerGroup = L.layerGroup().addTo(map);
+    }
+
+    // FETCH TRAILS FROM API
+    async function loadTrails() {
+      try {
+        const res = await fetch('/api/v1/citizen/requests');
+        const json = await res.json();
+        if (!json.success) return;
+
+        allTrails = json.data;
+        document.getElementById('trail-count-badge').innerText = `${allTrails.length} TRAILS`;
+
+        renderTrailsDirectory();
+
+        if (allTrails.length > 0) {
+          selectTrail(allTrails[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to load trails:", err);
+      }
+    }
+
+    // RENDER CLEAN TRAIL DIRECTORY CARDS
+    function renderTrailsDirectory() {
+      const q = document.getElementById('trail-search').value.toLowerCase().trim();
+      const grade = document.getElementById('grade-filter').value;
+      let filtered = allTrails;
+
+      if (activeZone !== 'all') {
+        filtered = filtered.filter(t => t.zone === activeZone);
+      }
+      if (grade !== 'all') {
+        filtered = filtered.filter(t => t.difficulty && t.difficulty.toLowerCase().includes(grade.toLowerCase()));
+      }
+      if (q) {
+        filtered = filtered.filter(t => 
+          t.title.toLowerCase().includes(q) || 
+          (t.region && t.region.toLowerCase().includes(q)) ||
+          (t.baseVillage && t.baseVillage.toLowerCase().includes(q)) ||
+          (t.difficulty && t.difficulty.toLowerCase().includes(q))
+        );
+      }
+
+      const listEl = document.getElementById('trail-directory-list');
+      listEl.innerHTML = '';
+      markerGroup.clearLayers();
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No matching mountain trails found.</div>';
+        return;
+      }
+
+      filtered.forEach(t => {
+        let statusBadge = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+        let markerColor = '#f97316';
+
+        if (t.statusLevel === 'critical') {
+          statusBadge = 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+          markerColor = '#f43f5e';
+        } else if (t.statusLevel === 'warning') {
+          statusBadge = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+          markerColor = '#f59e0b';
+        }
+
+        const isSelected = currentSelectedTrail && currentSelectedTrail.id === t.id;
+        const activeBorder = isSelected 
+          ? 'border-orange-500 bg-gradient-to-r from-orange-950/40 to-slate-900 shadow-md shadow-orange-500/20' 
+          : 'border-orange-500/20 bg-slate-900/60 hover:border-orange-500/40';
+
+        const thumbImg = t.photos ? t.photos.hero : 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=60';
+
+        const card = `
+          <div onclick="selectTrail('${t.id}')" class="p-2 rounded-xl border ${activeBorder} cursor-pointer transition flex gap-2.5 items-center">
+            <img src="${thumbImg}" class="w-12 h-12 rounded-lg object-cover border border-orange-500/20 shrink-0" alt="${t.title}" />
+            <div class="flex-1 min-w-0 space-y-0.5">
+              <div class="flex items-start justify-between gap-1">
+                <span class="text-xs font-bold text-white truncate block">${t.title}</span>
+                <span class="text-[9px] font-bold px-1.5 py-0.2 rounded-full border ${statusBadge} shrink-0">
+                  ${t.statusLevel === 'critical' ? '🔴 High Risk' : (t.statusLevel === 'warning' ? '🟡 Caution' : '🟢 Safe')}
+                </span>
+              </div>
+              <div class="text-[11px] text-orange-200/70 truncate">${t.region ? t.region.split('(')[0].trim() : 'India'}</div>
+              <div class="flex items-center gap-1.5 text-[10px] font-mono text-slate-300">
+                <span class="text-cyan-300 font-bold">${t.altitudeMeters}m</span>
+                <span class="text-orange-600">•</span>
+                <span class="text-amber-300">${t.durationDays || '3D'}</span>
+                <span class="text-orange-600">•</span>
+                <span class="text-rose-300">${t.distanceKm}km</span>
+              </div>
+            </div>
+          </div>
+        `;
+        listEl.insertAdjacentHTML('beforeend', card);
+
+        // Map Marker
+        const marker = L.circleMarker([t.lat, t.lng], {
+          radius: t.statusLevel === 'critical' ? 8.5 : 7,
+          fillColor: markerColor,
+          color: '#ffffff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.95
+        });
+
+        marker.on('click', () => selectTrail(t.id));
+        marker.bindPopup(`
+          <div class="text-xs space-y-1">
+            <div class="font-bold text-white">${t.title}</div>
+            <div class="text-[11px] text-orange-200">Altitude: <span class="font-mono text-amber-300 font-bold">${t.altitudeMeters}m</span></div>
+            <div class="text-[11px] text-slate-300">Duration: <b>${t.durationDays}</b> | Distance: <b>${t.distanceKm} km</b></div>
+            <div class="text-[11px] font-bold text-orange-400">${t.status}</div>
+          </div>
+        `);
+        markerGroup.addLayer(marker);
+      });
+    }
+
+    // SELECT TRAIL & UPDATE DOSSIER
+    async function selectTrail(trailId) {
+      const trail = allTrails.find(t => t.id === trailId);
+      if (!trail) return;
+
+      currentSelectedTrail = trail;
+
+      // Header row
+      document.getElementById('dos-title').innerText = trail.title;
+      document.getElementById('dos-region').innerText = trail.region || 'Indian Mountain Trail';
+      document.getElementById('dos-base').innerText = trail.baseVillage || 'Local Valley Roadhead';
+      document.getElementById('dos-grade').innerText = `${trail.difficulty} Grade`;
+
+      // Photos
+      if (trail.photos) {
+        document.getElementById('img-hero').src = trail.photos.hero;
+        document.getElementById('caption-hero').innerText = trail.photos.heroCaption;
+        document.getElementById('img-camp').src = trail.photos.camp;
+        document.getElementById('caption-camp').innerText = trail.photos.campCaption;
+        document.getElementById('img-trail').src = trail.photos.trail;
+        document.getElementById('caption-trail').innerText = trail.photos.trailCaption;
+      }
+
+      // 6 Metric Cards
+      document.getElementById('dos-alt').innerText = `${trail.altitudeMeters || 3200} m`;
+      document.getElementById('dos-ascent').innerText = `+${trail.elevationGainMeters || 1200} m`;
+      document.getElementById('dos-duration').innerText = trail.durationDays || '3 - 4 Days';
+      document.getElementById('dos-distance').innerText = `${trail.distanceKm || 25} km`;
+      document.getElementById('dos-snow').innerText = `${trail.snowDepthCm || 0} cm`;
+
+      // Status Pill
+      const statusPill = document.getElementById('dos-status-pill');
+      statusPill.innerText = trail.status;
+      if (trail.statusLevel === 'critical') {
+        statusPill.className = 'px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+      } else if (trail.statusLevel === 'warning') {
+        statusPill.className = 'px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40';
+      } else {
+        statusPill.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+      }
+
+      // Render Campsites
+      renderCampsites(trail.campsites || []);
+
+      // 4 Logistics Cards
+      document.getElementById('dos-network').innerText = trail.networkCoverage || 'Limited cellular signal; carry offline GPS & maps.';
+      document.getElementById('dos-rescue').innerText = trail.nearestRescue || 'District Hospital & Local Police Rescue Unit.';
+      document.getElementById('dos-water').innerText = trail.waterAvailability || 'Fresh stream water; carry 2L bottle and purification drops.';
+      document.getElementById('dos-permit').innerText = trail.permitRequired || 'Local Forest Department permit / gate entry fee.';
+
+      // Health, Gear, Highlights & Safety
+      document.getElementById('dos-ams').innerText = trail.amsRisk || 'Moderate AMS risk above 3,200m; maintain hydration pace.';
+      document.getElementById('dos-safety').innerText = trail.safetyTip || 'Verify current trail conditions and weather before starting.';
+
+      // Gear Badges
+      const gearContainer = document.getElementById('dos-gear-badges');
+      gearContainer.innerHTML = '';
+      const gearItems = (trail.requiredGear || 'Trekking Shoes, Warm Shell, Rain Poncho, Poles').split(',');
+      gearItems.forEach(item => {
+        const badge = `<span class="px-2 py-0.5 rounded bg-orange-950/40 border border-orange-500/30 text-orange-200 text-[10px] font-medium"><i class="fa-solid fa-check text-amber-400 mr-1 text-[9px]"></i>${item.trim()}</span>`;
+        gearContainer.insertAdjacentHTML('beforeend', badge);
+      });
+
+      // Smooth camera pan to mountain
+      map.flyTo([trail.lat, trail.lng], 10, { duration: 1.2 });
+
+      // Re-render directory
+      renderTrailsDirectory();
+
+      // Fetch Live Open-Meteo Weather
+      fetchRealTimeMountainWeather(trail.lat, trail.lng);
+    }
+
+    // RENDER CAMPSITES LIST
+    function renderCampsites(campsites) {
+      const container = document.getElementById('campsites-container');
+      const countPill = document.getElementById('campsite-count-pill');
+      container.innerHTML = '';
+      countPill.innerText = `${campsites.length} CAMPSITES`;
+
+      if (!campsites || campsites.length === 0) {
+        container.innerHTML = '<div class="text-xs text-slate-400 col-span-4 py-2">No designated campsites reported for this route.</div>';
+        return;
+      }
+
+      campsites.forEach((c) => {
+        const card = `
+          <div class="p-2.5 rounded-xl bg-slate-900/90 border border-orange-500/25 space-y-1 alpenglow-border transition">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">${c.dayNumber}</span>
+              <span class="text-[11px] font-bold text-cyan-300 font-mono">${c.altitudeMeters}m</span>
+            </div>
+            <div class="font-bold text-white text-xs leading-tight">${c.name}</div>
+            <div class="text-[11px] text-orange-200/80 leading-snug"><i class="fa-solid fa-tent mr-1 text-orange-400"></i>${c.type}</div>
+            <div class="text-[10px] text-slate-300 leading-snug"><i class="fa-solid fa-droplet mr-1 text-sky-400"></i>${c.water}</div>
+            <div class="flex items-center justify-between text-[10px] pt-1 border-t border-orange-500/15 text-slate-400">
+              <span>Ground: <b class="text-slate-300">${c.tentGround ? c.tentGround.split('(')[0].trim() : 'Good'}</b></span>
+              <span class="text-rose-300 font-mono">${c.tempNight || '-4°C'}</span>
+            </div>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', card);
+      });
+    }
+
+    // LIGHTBOX VIEWER
+    function openLightbox(photoKey) {
+      if (!currentSelectedTrail || !currentSelectedTrail.photos) return;
+      const modal = document.getElementById('lightbox-modal');
+      const img = document.getElementById('lightbox-img');
+      const title = document.getElementById('lightbox-title');
+      const desc = document.getElementById('lightbox-desc');
+
+      const p = currentSelectedTrail.photos;
+      if (photoKey === 'hero') {
+        img.src = p.hero;
+        title.innerText = `${currentSelectedTrail.title} — Summit View`;
+        desc.innerText = p.heroCaption;
+      } else if (photoKey === 'camp') {
+        img.src = p.camp;
+        title.innerText = `${currentSelectedTrail.title} — Alpine Campsite`;
+        desc.innerText = p.campCaption;
+      } else {
+        img.src = p.trail;
+        title.innerText = `${currentSelectedTrail.title} — Mountain Route`;
+        desc.innerText = p.trailCaption;
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox-modal').classList.add('hidden');
+    }
+
+    // LIVE OPEN-METEO WEATHER FETCH
+    async function fetchRealTimeMountainWeather(lat, lng) {
+      const tempEl = document.getElementById('dos-temp');
+      const windEl = document.getElementById('dos-wind');
+      tempEl.innerText = "...";
+
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Weather API error");
+        const data = await res.json();
+
+        if (data.current_weather) {
+          const cw = data.current_weather;
+          tempEl.innerText = `${cw.temperature}°C`;
+          windEl.innerText = `Wind: ${cw.windspeed} km/h`;
+        }
+      } catch (err) {
+        if (currentSelectedTrail) {
+          tempEl.innerText = `${currentSelectedTrail.temperatureC}°C`;
+          windEl.innerText = `Wind: ${currentSelectedTrail.windSpeedKmh} km/h`;
+        }
+      }
+    }
+
+    // PRINTABLE OFFLINE GUIDE MODAL
+    function openPrintModal() {
+      if (!currentSelectedTrail) return;
+      const t = currentSelectedTrail;
+      const modal = document.getElementById('printable-modal');
+      const container = document.getElementById('print-content');
+
+      const gearItems = (t.requiredGear || 'Trekking Shoes, Warm Shell, Poles, Rain Poncho').split(',');
+      const gearCheckboxes = gearItems.map(g => `
+        <label class="flex items-center gap-2 p-1.5 rounded bg-slate-800 border border-slate-700">
+          <input type="checkbox" class="accent-orange-500 rounded">
+          <span class="text-slate-200">${g.trim()}</span>
+        </label>
+      `).join('');
+
+      const campsHtml = (t.campsites || []).map(c => `
+        <div class="p-2 rounded bg-slate-900 border border-slate-800">
+          <div class="flex justify-between font-bold text-amber-300">
+            <span>${c.dayNumber}: ${c.name}</span>
+            <span>${c.altitudeMeters}m</span>
+          </div>
+          <div class="text-[11px] text-slate-300">${c.type} • Water: ${c.water}</div>
+        </div>
+      `).join('');
+
+      container.innerHTML = `
+        <div class="bg-slate-950 p-4 rounded-xl border border-orange-500/30 space-y-3">
+          <div class="flex items-start justify-between">
+            <div>
+              <h2 class="text-xl font-bold text-orange-400">${t.title}</h2>
+              <div class="text-slate-300 font-medium">${t.region} • Base: <b>${t.baseVillage}</b></div>
+              <div class="text-[11px] text-orange-200/70 font-mono">GPS: ${t.lat.toFixed(4)}°N, ${t.lng.toFixed(4)}°E</div>
+            </div>
+            <div class="text-right">
+              <span class="px-2.5 py-1 rounded bg-orange-500/20 text-orange-300 border border-orange-500/40 font-bold">${t.difficulty} Grade</span>
+              <div class="text-[11px] text-slate-400 mt-1">${t.durationDays} • ${t.distanceKm} km</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center pt-2 border-t border-slate-800">
+            <div class="p-2 rounded bg-slate-900 border border-slate-800">
+              <div class="text-slate-400 text-[10px]">SUMMIT ALTITUDE</div>
+              <div class="font-bold text-white text-sm font-mono">${t.altitudeMeters} m</div>
+            </div>
+            <div class="p-2 rounded bg-slate-900 border border-slate-800">
+              <div class="text-slate-400 text-[10px]">TOTAL ASCENT</div>
+              <div class="font-bold text-emerald-400 text-sm font-mono">+${t.elevationGainMeters || 1200} m</div>
+            </div>
+            <div class="p-2 rounded bg-slate-900 border border-slate-800">
+              <div class="text-slate-400 text-[10px]">BEST SEASON</div>
+              <div class="font-bold text-rose-300 text-xs">${t.bestSeason}</div>
+            </div>
+            <div class="p-2 rounded bg-slate-900 border border-slate-800">
+              <div class="text-slate-400 text-[10px]">SNOWPACK RADAR</div>
+              <div class="font-bold text-orange-300 text-sm font-mono">${t.snowDepthCm} cm</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <span class="font-bold text-amber-400 block"><i class="fa-solid fa-campground mr-1"></i> Designated Route Campsites:</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            ${campsHtml}
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="p-3 rounded-lg bg-rose-950/20 border border-rose-800/40 space-y-1">
+            <span class="font-bold text-rose-400 block"><i class="fa-solid fa-hospital mr-1"></i> Nearest Emergency Rescue Post:</span>
+            <p class="text-slate-200">${t.nearestRescue}</p>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-850 border border-slate-800 space-y-1">
+            <span class="font-bold text-cyan-400 block"><i class="fa-solid fa-signal mr-1"></i> Mobile Signal Dead Zone Alert:</span>
+            <p class="text-slate-200">${t.networkCoverage}</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="p-3 rounded-lg bg-slate-850 border border-slate-800 space-y-1">
+            <span class="font-bold text-sky-400 block"><i class="fa-solid fa-droplet mr-1"></i> Water Sources on Route:</span>
+            <p class="text-slate-200">${t.waterAvailability}</p>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-850 border border-slate-800 space-y-1">
+            <span class="font-bold text-amber-400 block"><i class="fa-solid fa-file-shield mr-1"></i> Forest Entry Permits:</span>
+            <p class="text-slate-200">${t.permitRequired}</p>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-lg bg-slate-850 border border-slate-800 space-y-1">
+          <span class="font-bold text-rose-300 block"><i class="fa-solid fa-heart-pulse mr-1"></i> High-Altitude Health & AMS Guidance:</span>
+          <p class="text-slate-200">${t.amsRisk}</p>
+        </div>
+
+        <div class="space-y-1.5">
+          <span class="font-bold text-slate-200 block"><i class="fa-solid fa-list-check mr-1 text-orange-400"></i> Field Equipment Checklist:</span>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            ${gearCheckboxes}
+          </div>
+        </div>
+
+        <div class="p-3 rounded-lg bg-orange-950/30 border border-orange-800/50 space-y-1">
+          <span class="font-bold text-orange-300 block"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Safety Notice:</span>
+          <p class="text-slate-200">${t.safetyTip}</p>
+        </div>
+      `;
+
+      modal.classList.remove('hidden');
+    }
+
+    function closePrintModal() {
+      document.getElementById('printable-modal').classList.add('hidden');
+    }
+
+    // STARTUP
+    window.addEventListener('DOMContentLoaded', () => {
+      initMap();
+      loadTrails();
+    });
+  </script>
+
+</body>
+</html>

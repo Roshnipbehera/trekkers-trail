@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Python cache & config
+__pycache__/
+*.py[cod]
+*$py.class
+.mplconfig/
+.pytest_cache/
+
+# Environment and secrets
+.env
+.env.local
+*.log
+
+# OS & Editor temp files
+.DS_Store
+Thumbs.db
+~$*.docx
+~$*.doc
+*.tmp
+
+# Cloud Docker volumes
+pg-data/
+redis-data/

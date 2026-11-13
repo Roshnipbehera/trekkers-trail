@@ -1,0 +1,59 @@
+{
+  "model_name": "AtmosphericSignalLossPredictor",
+  "version": "1.0.0",
+  "trained_date": "2026-11-03",
+  "features": [
+    "elevation_angle_deg",
+    "frequency_ghz",
+    "rain_rate_mm_hr",
+    "cloud_liquid_water_g_m3",
+    "surface_temp_c",
+    "relative_humidity_pct"
+  ],
+  "linear_coefficients": {
+    "elevation_angle_deg": -0.07576943349929394,
+    "frequency_ghz": 0.24895510300638024,
+    "rain_rate_mm_hr": 0.6625071554925542,
+    "cloud_liquid_water_g_m3": 0.2867780217823785,
+    "surface_temp_c": 0.002084541824071126,
+    "relative_humidity_pct": 0.00022271388288902516
+  },
+  "linear_intercept": -0.2357260698599455,
+  "metrics": {
+    "best_model": "Random Forest Regressor",
+    "benchmark": [
+      {
+        "Model": "Multiple Linear Regression",
+        "RMSE": 2.8107,
+        "MAE": 1.671,
+        "R2_Score": 0.7026
+      },
+      {
+        "Model": "Ridge Regression",
+        "RMSE": 2.8107,
+        "MAE": 1.671,
+        "R2_Score": 0.7026
+      },
+      {
+        "Model": "Decision Tree Regressor",
+        "RMSE": 1.3023,
+        "MAE": 0.6416,
+        "R2_Score": 0.9361
+      },
+      {
+        "Model": "Random Forest Regressor",
+        "RMSE": 1.1577,
+        "MAE": 0.463,
+        "R2_Score": 0.9495
+      }
+    ]
+  },
+  "feature_importances": {
+    "rain_rate_mm_hr": 0.4377,
+    "elevation_angle_deg": 0.2961,
+    "frequency_ghz": 0.2497,
+    "surface_temp_c": 0.0067,
+    "cloud_liquid_water_g_m3": 0.0055,
+    "relative_humidity_pct": 0.0044
+  }
+}

@@ -1,0 +1,73 @@
+version: '3.8'
+
+# ==============================================================================
+# ORBITLINK - CLOUD MULTI-CONTAINER ORCHESTRATION
+# Subject: Cloud Computing (Scalability & Resource Management)
+# ==============================================================================
+
+services:
+  # 1. ORBITLINK EXPRESS.JS WEB & API GATEWAY
+  orbitlink-api:
+    build:
+      context: ..
+      dockerfile: cloud/Dockerfile
+    container_name: orbitlink-gateway
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - REDIS_URL=redis://redis-cache:6379
+      - DATABASE_URL=postgresql://orbituser:orbitpass@postgres-db:5432/orbitlink
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis-cache
+      - postgres-db
+    networks:
+      - orbit-cloud-net
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  # 2. IN-MEMORY REDIS CACHE (FOR KNAPSACK RESULTS & REAL-TIME SATELLITE PASSES)
+  redis-cache:
+    image: redis:7-alpine
+    container_name: orbitlink-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - orbit-cloud-net
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+
+  # 3. RELATIONAL POSTGRESQL DATABASE (CITIZEN TELEMETRY & OBSERVATION ORDERS)
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: orbitlink-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: orbituser
+      POSTGRES_PASSWORD: orbitpass
+      POSTGRES_DB: orbitlink
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks:
+      - orbit-cloud-net
+
+networks:
+  orbit-cloud-net:
+    driver: bridge
+
+volumes:
+  redis-data:
+  pg-data:
+
