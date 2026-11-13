@@ -24,3 +24,4 @@ Thumbs.db
 # Cloud Docker volumes
 pg-data/
 redis-data/
+
